@@ -36,7 +36,7 @@ public class Game {
 		currentPicks = new ArrayList<Pick>();
 	}
 
-	public void addPlayer(Player player) {
+	public synchronized void addPlayer(Player player) {
 		if (players.contains(player)) {
 			throw new IllegalArgumentException();
 		} else {
@@ -74,25 +74,74 @@ public class Game {
 	public List<SendMessage> dealCardMessages() {
 		List<SendMessage> messages = new ArrayList<SendMessage>();
 		for (Player player : players.stream().filter(x -> !x.equals(currentLeader)).collect(Collectors.toList())) {
-			List<List<InlineKeyboardButton>> buttons = new ArrayList<List<InlineKeyboardButton>>();
-			String cardText = "";
-			for (int i = 1; i <= CARD_COUNT; i++) {
-				Card card = cards.getWhiteCard();
-				currentPicks.add(new Pick(player, card));
-				InlineKeyboardButton button = new InlineKeyboardButton();
-				button.setText("" + i);
-				button.setCallbackData(Commands.SWITCH_CARD + "?" + i);
-				List<InlineKeyboardButton> l = new ArrayList<InlineKeyboardButton>();
-				l.add(button);
-				buttons.add(l);
-				cardText += "" + i + ": " + card.getText() + "\n";
-			}
-			InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
-			markup.setKeyboard(buttons);
-			SendMessage message = new SendMessage(player.getPrivateChatId(), Text.YOUR_CARDS + "\n" + cardText);
-			message.setReplyMarkup(markup);
-			messages.add(message);
+			messages.add(dealCardsToPlayer(player));
 		}
 		return messages;
+	}
+
+	private SendMessage dealCardsToPlayer(Player player) {
+		List<List<InlineKeyboardButton>> buttons = new ArrayList<List<InlineKeyboardButton>>();
+		String cardText = "";
+		for (int i = 1; i <= CARD_COUNT; i++) {
+			Card card = cards.getWhiteCard();
+			currentPicks.add(new Pick(player, card));
+			InlineKeyboardButton button = new InlineKeyboardButton();
+			button.setText("" + i);
+			button.setCallbackData(Commands.SWITCH_CARD + "?" + i);
+			List<InlineKeyboardButton> l = new ArrayList<InlineKeyboardButton>();
+			l.add(button);
+			buttons.add(l);
+			cardText += "" + i + ": " + card.getText() + "\n";
+		}
+		InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+		markup.setKeyboard(buttons);
+		SendMessage message = new SendMessage(player.getPrivateChatId(), Text.YOUR_CARDS + "\n" + cardText);
+		message.setReplyMarkup(markup);
+		return message;
+	}
+
+	public synchronized SendMessage[] switchPick(int pickNumber, int playerId) {
+		List<Pick> picksFromPlayer = currentPicks.stream().filter(x -> x.getPlayer().getUserId() == playerId)
+				.collect(Collectors.toList());
+		currentPicks = currentPicks.stream().filter(x -> x.getPlayer().getUserId() != playerId)
+				.collect(Collectors.toList());
+		SendMessage msg = new SendMessage();
+		Pick removedPick = picksFromPlayer.remove(pickNumber);
+		msg.setText(removedPick.getPlayer().getName() + Text.DOESNT_KNOW_CARD + removedPick.getCard().getText());
+		Card card = cards.getWhiteCard();
+		Pick newPick = new Pick(removedPick.getPlayer(), card);
+		picksFromPlayer.add(newPick);
+		currentPicks.addAll(picksFromPlayer);
+		SendMessage[] ret = new SendMessage[2];
+		ret[0] = msg;
+		ret[1] = getResendMessage(playerId, true);
+		return ret;
+	}
+
+	private SendMessage getResendMessage(int playerId, boolean canSwitch) {
+		List<Pick> picksFromPlayer = currentPicks.stream().filter(x -> x.getPlayer().getUserId() == playerId)
+				.collect(Collectors.toList());
+		List<List<InlineKeyboardButton>> buttons = new ArrayList<List<InlineKeyboardButton>>();
+		String cardText = "";
+		for (int i = 1; i <= picksFromPlayer.size(); i++) {
+			InlineKeyboardButton button = new InlineKeyboardButton();
+			button.setText("" + i);
+			if (canSwitch) {
+				button.setCallbackData(Commands.SWITCH_CARD + "?" + i);
+			} else {
+				button.setCallbackData(Commands.CHOOSE_CARD + "?" + i);
+			}
+			List<InlineKeyboardButton> l = new ArrayList<InlineKeyboardButton>();
+			l.add(button);
+			buttons.add(l);
+			cardText += "" + i + ": " + picksFromPlayer.get(i-1).getCard().getText() + "\n";
+		}
+		InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+		markup.setKeyboard(buttons);
+		long playerChatId = picksFromPlayer.get(0).getPlayer().getPrivateChatId();
+		SendMessage message = new SendMessage(playerChatId, Text.YOUR_CARDS + "\n" + cardText);
+		message.setReplyMarkup(markup);
+		message.setChatId(playerChatId);
+		return message;
 	}
 }

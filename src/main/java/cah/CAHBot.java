@@ -74,9 +74,23 @@ public class CAHBot extends TelegramLongPollingBot {
 		execute(reply);
 	}
 
-	private void processCallback(CallbackQuery callbackQuery) {
+	private void processCallback(CallbackQuery callbackQuery) throws TelegramApiException {
 		AnswerCallbackQuery q = new AnswerCallbackQuery();
 		q.setCallbackQueryId(callbackQuery.getId());
+		execute(q);
+		String msg = callbackQuery.getData();
+		if (msg.contains(Commands.SWITCH_CARD)) {
+			switchCard(msg, callbackQuery.getFrom().getId());
+		}
+	}
+
+	private void switchCard(String message, int playerId)  throws TelegramApiException {
+		message = message.replace(Commands.SWITCH_CARD + "?", "");
+		int pickNumber = Integer.parseInt(message) -1; //offset
+		SendMessage[] replaceMessages = game.switchPick(pickNumber, playerId);
+		replaceMessages[0].setChatId(groupChatId);
+		deleteList.add(execute(replaceMessages[0]).getMessageId());
+		execute(replaceMessages[1]);
 	}
 
 	private void processMessage(Message message) throws TelegramApiException {
@@ -117,6 +131,7 @@ public class CAHBot extends TelegramLongPollingBot {
 		for (SendMessage msg : game.dealCardMessages()) {
 			execute(msg);
 		}
+		//TODO: counter für bereit
 	}
 
 	private void pickLeader() throws TelegramApiException {

@@ -14,5 +14,6 @@ public class Text {
 	public static final String SWITCH_CARDS = "Fangen wir an. Wähle die Karten aus, deren Inhalt du nicht verstehst. Diese werden in die Gruppe geschrieben und du bekommt neue.";
 	public static final String CHOSE_LEADER = " wurde als Spielleiter ausgewählt!";
 	public static final String YOUR_CARDS = "Deine Aktuellen Karten:";
+	public static final String DOESNT_KNOW_CARD = " versteht die folgende Karte nicht: ";
 
 }
